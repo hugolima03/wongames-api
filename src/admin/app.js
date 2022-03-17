@@ -1,3 +1,6 @@
+import White from "./extensions/Logo.svg";
+import Joystick from "./extensions/Joystick.svg";
+
 export default {
   config: {
     locales: [
@@ -28,6 +31,16 @@ export default {
       // 'zh-Hans',
       // 'zh',
     ],
+    auth: {
+      logo: White,
+    },
+    head: {
+      favicon: Joystick,
+    },
+    menu: {
+      logo: Joystick,
+    },
+    tutorials: false,
   },
   bootstrap(app) {
     console.log(app);
