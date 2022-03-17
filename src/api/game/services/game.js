@@ -46,7 +46,6 @@ async function getByName(name, entityName) {
 
 async function create(name, entityName) {
   const item = await getByName(name, entityName);
-
   if (!item) {
     return await strapi.entityService.create(
       `api::${entityName}.${entityName}`,
@@ -60,6 +59,35 @@ async function create(name, entityName) {
   }
 }
 
+async function createManyToManyData(products) {
+  const developers = {};
+  const publishers = {};
+  const categories = {};
+  const platforms = {};
+
+  products.forEach((product) => {
+    const { developer, publisher, genres, supportedOperatingSystems } = product;
+
+    genres &&
+      genres.forEach((item) => {
+        categories[item] = true;
+      });
+    supportedOperatingSystems &&
+      supportedOperatingSystems.forEach((item) => {
+        platforms[item] = true;
+      });
+    developers[developer] = true;
+    publishers[publisher] = true;
+  });
+
+  return Promise.all([
+    ...Object.keys(developers).map((name) => create(name, "developer")),
+    ...Object.keys(publishers).map((name) => create(name, "publisher")),
+    ...Object.keys(categories).map((name) => create(name, "category")),
+    ...Object.keys(platforms).map((name) => create(name, "platform")),
+  ]);
+}
+
 module.exports = createCoreService("api::game.game", ({ strapi }) => ({
   async populate(...args) {
     const gogApiUrl = `https://www.gog.com/games/ajax/filtered?mediaType=game&page=1&sort=popularity`;
@@ -67,8 +95,6 @@ module.exports = createCoreService("api::game.game", ({ strapi }) => ({
       data: { products },
     } = await axios.get(gogApiUrl);
 
-    console.log(products[1].publisher, products[1].developer);
-    await create(products[1].publisher, "publisher");
-    await create(products[1].developer, "developer");
+    await createManyToManyData(products);
   },
 }));
