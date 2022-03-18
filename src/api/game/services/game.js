@@ -16,18 +16,11 @@ async function getGameInfo(slug) {
   const dom = new JSDOM(body.data);
 
   const description = dom.window.document.querySelector(".description");
-
+  console.log(description.innerHTML);
   return {
     rating: "BR0",
-    short_description: description.textContent
-      .replaceAll("\n", "")
-      .replace(/ +(?= )/g, "")
-      .trim()
-      .slice(0, 160),
-    description: description.innerHTML
-      .replaceAll("\n", "")
-      .replace(/ +(?= )/g, "")
-      .trim(),
+    short_description: description.textContent.slice(0, 160),
+    description: description.innerHTML,
   };
 }
 
@@ -52,7 +45,7 @@ async function create(name, entityName) {
       {
         data: {
           name: name,
-          slug: slugify(name, { lower: true }),
+          slug: slugify(name, { lower: true }).replaceAll('"', ""),
         },
       }
     );
@@ -70,12 +63,17 @@ async function createManyToManyData(products) {
 
     genres &&
       genres.forEach((item) => {
-        categories[item] = true;
+        if (item.trim().length !== 0) {
+          categories[item] = true;
+        }
       });
     supportedOperatingSystems &&
       supportedOperatingSystems.forEach((item) => {
-        platforms[item] = true;
+        if (item.trim().length !== 0) {
+          platforms[item] = true;
+        }
       });
+
     developers[developer] = true;
     publishers[publisher] = true;
   });
@@ -87,6 +85,39 @@ async function createManyToManyData(products) {
     ...Object.keys(platforms).map((name) => create(name, "platform")),
   ]);
 }
+async function createGames(products) {
+  await Promise.all(
+    products.map(async (product) => {
+      const item = await getByName(product.title, "game");
+
+      if (!item) {
+        console.info(`Creating: ${product.title}...`);
+        const game = await strapi.entityService.create("api::game.game", {
+          data: {
+            name: product.title,
+            slug: product.slug.replace(/_/g, "-"),
+            price: product.price.amount,
+            release_date: new Date(
+              Number(product.globalReleaseDate) * 1000
+            ).toISOString(),
+            categories: await Promise.all(
+              product.genres.map((name) => getByName(name, "category"))
+            ),
+            platforms: await Promise.all(
+              product.supportedOperatingSystems.map((name) =>
+                getByName(name, "platform")
+              )
+            ),
+            developers: [await getByName(product.developer, "developer")],
+            publisher: await getByName(product.publisher, "publisher"),
+            ...(await getGameInfo(product.slug)),
+          },
+        });
+        return game;
+      }
+    })
+  );
+}
 
 module.exports = createCoreService("api::game.game", ({ strapi }) => ({
   async populate(...args) {
@@ -96,5 +127,7 @@ module.exports = createCoreService("api::game.game", ({ strapi }) => ({
     } = await axios.get(gogApiUrl);
 
     await createManyToManyData(products);
+    await createGames(products);
+    console.log("passou");
   },
 }));
