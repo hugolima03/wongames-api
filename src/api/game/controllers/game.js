@@ -11,7 +11,13 @@ module.exports = createCoreController("api::game.game", ({ strapi }) => ({
     try {
       console.log("Starting to populate...");
 
-      await strapi.service("api::game.game").populate();
+      const options = {
+        sort: "popularity",
+        page: "1",
+        ...ctx.query,
+      };
+
+      await strapi.service("api::game.game").populate(options);
 
       ctx.send("Finished populating!");
     } catch (err) {
